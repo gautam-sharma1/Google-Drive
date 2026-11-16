@@ -1,0 +1,88 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-changeme}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  eureka:
+    build: ./Eureka/Eureka
+    container_name: eureka
+    ports:
+      - "8761:8761"
+
+  file-services:
+    build: ./File-Services/File-Services
+    container_name: file-services
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/filedb?createDatabaseIfNotExist=true
+      DB_USERNAME: root
+      DB_PASSWORD: ${DB_PASSWORD:-changeme}
+    depends_on:
+      eureka:
+        condition: service_started
+      mysql:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+
+  folder-services:
+    build: ./folder-services/folder-services
+    container_name: folder-services
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/folderdb?createDatabaseIfNotExist=true
+      DB_USERNAME: root
+      DB_PASSWORD: ${DB_PASSWORD:-changeme}
+    depends_on:
+      eureka:
+        condition: service_started
+      mysql:
+        condition: service_healthy
+    ports:
+      - "8082:8082"
+
+  search-services:
+    build: ./Search-Services/Search-Services
+    container_name: search-services
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
+    depends_on:
+      eureka:
+        condition: service_started
+      file-services:
+        condition: service_started
+      folder-services:
+        condition: service_started
+    ports:
+      - "8083:8083"
+
+  api-gateway:
+    build: ./Api-GateWay/Api-GateWay
+    container_name: api-gateway
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
+    depends_on:
+      eureka:
+        condition: service_started
+      file-services:
+        condition: service_started
+      folder-services:
+        condition: service_started
+      search-services:
+        condition: service_started
+    ports:
+      - "8080:8080"
+
+volumes:
+  mysql_data:

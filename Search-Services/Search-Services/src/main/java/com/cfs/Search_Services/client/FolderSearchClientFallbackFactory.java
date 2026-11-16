@@ -1,11 +1,13 @@
 package com.cfs.Search_Services.client;
 
 import org.springframework.cloud.openfeign.FallbackFactory;
+import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+@Component
 public class FolderSearchClientFallbackFactory implements FallbackFactory<FolderSearchClient> {
     @Override
     public FolderSearchClient create(Throwable cause) {

@@ -29,17 +29,24 @@ private FileRepository fileRepository;
   return fileRepository.findAll();
     }
 @GetMapping("/{id}")
-    public FileEntity getFile(@PathVariable Long id){
-    return fileRepository.findById(id).orElse(null);
+    public ResponseEntity<FileEntity> getFile(@PathVariable Long id){
+    // return fileRepository.findById(id).orElse(null); // old: returned null body with 200 OK when not found
+    return fileRepository.findById(id)
+            .map(ResponseEntity::ok)
+            .orElseGet(() -> ResponseEntity.notFound().build());
     }
     @PostMapping
     public FileEntity  createfile(@RequestBody FileEntity fileEntity){
+    fileEntity.setId(null); // ignore any client-supplied id — prevents overwriting an existing row by id (IDOR)
     return  fileRepository.save(fileEntity);
     }
 @DeleteMapping("/{id}")
-    public void deletefile(@PathVariable Long id){
+    public ResponseEntity<Void> deletefile(@PathVariable Long id){
+    if (!fileRepository.existsById(id)) {
+        return ResponseEntity.notFound().build();
+    }
     fileRepository.deleteById(id);
-
+    return ResponseEntity.noContent().build();
 }
 @GetMapping("/folder/{folderId}")
 public List<FileEntity> getFilesByFolder(@PathVariable Long folderId)
@@ -60,21 +67,31 @@ public List<FileEntity> getFilesByFolder(@PathVariable Long folderId)
             String fileName=file.getOriginalFilename();
 
             FileEntity newFile=new FileEntity();
-            newFile.setId(System.currentTimeMillis());
+            // newFile.setId(System.currentTimeMillis()); // old: manual timestamp id, collision-prone, id is now DB-generated via @GeneratedValue
             newFile.setName(fileName!=null ? fileName : name);
             newFile.setFolderId(folderId);
-            newFile.setPath("/files/"+newFile.getId());
+            newFile.setSize(String.valueOf(fileSize));
 
+            // generate a safe disk filename instead of trusting the client's original filename (path traversal fix)
+            String extension = "";
+            if (fileName != null && fileName.contains(".")) {
+                extension = fileName.substring(fileName.lastIndexOf('.'));
+            }
+            String storedFileName = java.util.UUID.randomUUID() + extension;
 
             //save file disk
-            String uploadDirPath=UPLOAD_DIR+ File.separator+newFile.getId();
+            // String uploadDirPath=UPLOAD_DIR+ File.separator+newFile.getId(); // old: used manually-set id for folder name
+            String uploadDirPath = UPLOAD_DIR + File.separator + folderId;
             Files.createDirectories(Paths.get(uploadDirPath));
-            Path filePath = Paths.get(uploadDirPath,newFile.getName());
+            // Path filePath = Paths.get(uploadDirPath,newFile.getName()); // old: used client-controlled filename directly as disk filename — path traversal risk
+            Path filePath = Paths.get(uploadDirPath, storedFileName);
             Files.write(filePath,file.getBytes());
+
+            newFile.setPath(filePath.toString());
 
             System.out.println("dir path : "+ uploadDirPath);
 
-            FileEntity saved=fileRepository.save(newFile);    //h2
+            FileEntity saved=fileRepository.save(newFile);    //mysql
             return Map.of("success","true","file",saved);
 
         } catch (Exception e) {
@@ -88,14 +105,17 @@ public List<FileEntity> getFilesByFolder(@PathVariable Long folderId)
             FileEntity file=fileRepository.findById(id).orElse(null);
             if(file==null)
             {
-                return ResponseEntity.noContent().build();
+                // return ResponseEntity.noContent().build(); // old: 204 for "not found" is semantically wrong
+                return ResponseEntity.notFound().build();
             }
 
-            Path filePath=Paths.get(UPLOAD_DIR,id.toString(),file.getName());
+            // Path filePath=Paths.get(UPLOAD_DIR,id.toString(),file.getName()); // old: rebuilt path from id + client-visible filename — allowed traversal via crafted filename
+            Path filePath = Paths.get(file.getPath());
 
             if(!Files.exists(filePath))
             {
-                return ResponseEntity.noContent().build();
+                // return ResponseEntity.noContent().build(); // old: 204 for "not found" is semantically wrong
+                return ResponseEntity.notFound().build();
 
             }
 

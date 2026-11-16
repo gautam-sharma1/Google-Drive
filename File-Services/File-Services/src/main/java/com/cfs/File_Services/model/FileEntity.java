@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 @Table( name = "files")
 public class FileEntity {
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private String name;
     private String size;

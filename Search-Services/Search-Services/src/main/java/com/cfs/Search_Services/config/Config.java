@@ -11,8 +11,10 @@ public class Config implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-                .allowedOriginPatterns("*")
-                .allowedMethods("GET,PUT,POST,DELETE,OPTION")
+                // .allowedOriginPatterns("*") // old: wildcard origin combined with allowCredentials(true) is an insecure combination
+                .allowedOrigins("http://localhost:3000")
+                // .allowedMethods("GET,PUT,POST,DELETE,OPTION") // old: typo, "OPTION" doesn't match the HTTP verb "OPTIONS"
+                .allowedMethods("GET,PUT,POST,DELETE,OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true);
     }

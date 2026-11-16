@@ -8,8 +8,7 @@ import java.util.List;
 import java.util.Map;
 
 @FeignClient(
-        name = "file-service",
-        url = "http://localhost:8081",
+        name = "FILE-SERVICES",
 fallbackFactory = FileSearchClientFallbackFactory.class
 ) // we are enabling circuit breaker through feign client  ,so we enable this mechanism by feign client only  and feign client ka matlab hot hai ki mae communication kar raha hu and communication fail hui toh circuit breaker ki open state start ho jayegi  means fallback mechnaism start ho jayegi
 public interface FileSearchClient {

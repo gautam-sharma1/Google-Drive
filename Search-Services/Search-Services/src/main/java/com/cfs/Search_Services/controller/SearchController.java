@@ -35,7 +35,9 @@ public class SearchController {
     {
         System.out.println("[SEARCH] Request for query "+query);
         CircuitBreaker fileServiceCB = circuitBreakerRegistry.circuitBreaker("file-service");// name of my circuit breaker
+        CircuitBreaker folderServiceCB = circuitBreakerRegistry.circuitBreaker("folder-service");
         List<Map<String,Object>> allFiles = new ArrayList<>();// this is the data of file ,not a  complete file
+        List<Map<String,Object>> allFolders = new ArrayList<>();
 //List<Map<String,Object>> allFiles=fileSearchClient.getAllFiles();
   //      List<Map<String,Object>> allFolders=folderSearchClient.getAllFolders();
         try {
@@ -47,7 +49,23 @@ public class SearchController {
             System.err.println("[SEARCH] ❌ File-service error: " + e.getMessage());
         }
 
+        // folder search was previously commented out here, leaving "/api/search" without folder results at all
+        try {
+            Supplier<List<Map<String, Object>>> folderCallable = () -> folderSearchClient.getAllFolders();
+            allFolders = folderServiceCB.executeSupplier(folderCallable);
+        } catch (CallNotPermittedException e) {
+            System.err.println("[SEARCH] ⚠ Folder-service circuit breaker OPEN - returning empty folder results");
+        } catch (Exception e) {
+            System.err.println("[SEARCH] ❌ Folder-service error: " + e.getMessage());
+        }
+
         List<Map<String, Object>> fileResults = (allFiles != null ? allFiles : new ArrayList<Map<String, Object>>())
+                .stream()
+                .filter(f -> f != null && f.get("name") != null &&
+                        f.get("name").toString().toLowerCase().contains(query.toLowerCase()))
+                .toList();
+
+        List<Map<String, Object>> folderResults = (allFolders != null ? allFolders : new ArrayList<Map<String, Object>>())
                 .stream()
                 .filter(f -> f != null && f.get("name") != null &&
                         f.get("name").toString().toLowerCase().contains(query.toLowerCase()))
@@ -55,16 +73,8 @@ public class SearchController {
 
         Map<String, Object> result = new HashMap<>();
         result.put("files", fileResults);
+        result.put("folders", folderResults);
         return result;
-
-//        List<Map<String,Object>> folderResult=allFolders.stream()
-//                .filter(f->f.get("name").toString().toLowerCase().contains(query.toLowerCase()))
-//                .toList();
-
-//        Map<String,Object> res=new HashMap<>();
-//        res.put("files",fileResult);
-////        res.put("folders",folderResult);
-//        return  res;
     }
 
     @GetMapping("/files")
