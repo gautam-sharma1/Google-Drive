@@ -1,4 +1,4 @@
-# DriveMesh
+# Google Drive Clone
 
 A Google Drive–style file storage platform built as 5 independent Java/Spring Boot microservices, tied together with service discovery, an API gateway, and a circuit breaker for resilience.
 
